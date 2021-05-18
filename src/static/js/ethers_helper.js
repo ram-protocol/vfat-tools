@@ -34,6 +34,9 @@ const pageNetwork = function() {
   if (network.toLowerCase() === 'avax') {
     return window.NETWORKS.AVALANCHE
   }
+  if (network.toLowerCase() === 'thundercore') {
+    return window.NETWORKS.THUNDERCORE
+  }
 
   return window.NETWORKS.ETHEREUM
 }
