@@ -34,6 +34,16 @@ async function main() {
     hideLoading();
 }
 
+async function getTokenDecimals(market, provider) {
+    const rTokenName = await market.name()
+    if (rTokenName === 'TT interest bearing token') {
+        return 18
+    }
+    const underlyingAddress = await market.underlying()
+    const tt20 = new ethers.Contract(underlyingAddress, MARKET_ABI, provider); 
+    return tt20.decimals()
+}
+
 async function getUnderlyingPrice(market, prices) {
   const rTokenName = await market.name()
   if (rTokenName === 'TT interest bearing token') {
@@ -55,6 +65,7 @@ async function loadRamProtocolData(protocol, App) {
         const isTTMarket = address === TT_MARKET_ADDRESS;
 
         const [
+            decimals,
             underlyingPrice,
             name,
             totalBorrow,
@@ -69,6 +80,7 @@ async function loadRamProtocolData(protocol, App) {
             // cash,
             ...rest
         ] = await Promise.all([
+            getTokenDecimals(market,App.provider),
             getUnderlyingPrice(market, prices),
             market.name(),
             market.totalBorrows(),
@@ -106,10 +118,10 @@ async function loadRamProtocolData(protocol, App) {
             // market.transfer(),
             // market.transferFrom(),
         ])
-
         // _print('REST ------------------')
         // _print(rest)
         const newmarket =  {
+            decimals,
             underlyingPrice,
             borrowBalanceOf: 0,
             borrowNetAPR: 0,
@@ -125,23 +137,19 @@ async function loadRamProtocolData(protocol, App) {
             supplyUsdPerDay: 0,
             supplyUsdPerWeek: 0,
             supplyUsdPerYear: 0,
-            totalBorrow,
-            totalSupply: totalSupply * exchangeRate * 1e-36, // USDC / USDT 1e-24
+            totalBorrow: totalBorrow.div(ethers.BigNumber.from("10").pow(decimals)),
+            totalSupply: totalSupply.mul(exchangeRate).div(ethers.BigNumber.from("10").pow(18 + decimals)), 
             uReserves: 0,
             uSymbol: name.split(' ')[0],
             yearlyBorrowAPR: 0,
             yearlySupplyAPR: 0,
         }
-        console.log('supplyRatePerBlock * blockPerYear * 1e-16:', supplyRatePerBlock * blockPerYear * 1e-18)
-        console.log('supplyRatePerBlock * blockPerYear:', supplyRatePerBlock * blockPerYear)
-        console.log('blockPerYear:', blockPerYear)
-        console.log('supplyRatePerBlock:', supplyRatePerBlock)
-        console.log('newmarket:', newmarket)
         return newmarket
     }
 }
 
 async function printRamMarketData({
+    decimals,
     borrowBalanceOf = 0,
     borrowNetAPR,
     borrowPercentage = 0,
