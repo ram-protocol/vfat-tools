@@ -12,6 +12,7 @@ async function main() {
     const App = await init_ethers();
 
     _print(`Initialized ${App.YOUR_ADDRESS}\n`);
+    
     _print("Reading smart contracts...\n");
 
     const RAM_PROTOCOL_ADDR = "0x0d4fe8832857Bb557d8CFCf3737cbFc8aE784106";
@@ -33,8 +34,18 @@ async function main() {
     hideLoading();
 }
 
+async function getUnderlyingPrice(market, prices) {
+  const rTokenName = await market.name()
+  if (rTokenName === 'TT interest bearing token') {
+    return prices['0x0000000000000000000000000000000000000000'].usd
+  }
+  const underlyingAddress = await market.underlying()
+  return prices[underlyingAddress].usd
+}
+
 async function loadRamProtocolData(protocol, App) {
     const rate = await protocol.ramRate()
+    const prices = await getTTPrices()
 
     const blockPerWeek = 7 * 24 * 60 * 60;
     const blockPerYear = 365 * 24 * 60 * 60;
@@ -44,6 +55,7 @@ async function loadRamProtocolData(protocol, App) {
         const isTTMarket = address === TT_MARKET_ADDRESS;
 
         const [
+            underlyingPrice,
             name,
             totalBorrow,
             totalSupply,
@@ -57,6 +69,7 @@ async function loadRamProtocolData(protocol, App) {
             // cash,
             ...rest
         ] = await Promise.all([
+            getUnderlyingPrice(market, prices),
             market.name(),
             market.totalBorrows(),
             market.totalSupply(),
@@ -94,34 +107,37 @@ async function loadRamProtocolData(protocol, App) {
             // market.transferFrom(),
         ])
 
-        _print('REST ------------------')
-        _print(rest)
-
-        debugger;
-
-        return {
+        // _print('REST ------------------')
+        // _print(rest)
+        const newmarket =  {
+            underlyingPrice,
             borrowBalanceOf: 0,
             borrowNetAPR: 0,
             borrowPercentage: 0,
-            borrowRate: borrowRatePerBlock * blockPerYear * 1e-20,
+            borrowRate: borrowRatePerBlock * blockPerYear * 1e-18 * 100,
             borrowUsdPerDay: 0,
             borrowUsdPerWeek: 0,
             borrowUsdPerYear: 0,
             supplyBalanceOf: 0,
             supplyNetAPR: 0,
             supplyPercentage: 0,
-            supplyRate: supplyRatePerBlock * blockPerYear * 1e-20,
+            supplyRate: supplyRatePerBlock * blockPerYear * 1e-18 * 100,
             supplyUsdPerDay: 0,
             supplyUsdPerWeek: 0,
             supplyUsdPerYear: 0,
             totalBorrow,
             totalSupply: totalSupply * exchangeRate * 1e-36, // USDC / USDT 1e-24
-            underlyingPrice: 0,
             uReserves: 0,
             uSymbol: name.split(' ')[0],
             yearlyBorrowAPR: 0,
             yearlySupplyAPR: 0,
         }
+        console.log('supplyRatePerBlock * blockPerYear * 1e-16:', supplyRatePerBlock * blockPerYear * 1e-18)
+        console.log('supplyRatePerBlock * blockPerYear:', supplyRatePerBlock * blockPerYear)
+        console.log('blockPerYear:', blockPerYear)
+        console.log('supplyRatePerBlock:', supplyRatePerBlock)
+        console.log('newmarket:', newmarket)
+        return newmarket
     }
 }
 
@@ -151,9 +167,9 @@ async function printRamMarketData({
     _print_bold(`${uSymbol} ($${formatMoney(underlyingPrice)})`);
     _print(`Supplied : ${formatMoney(totalSupply)} ($${formatMoney(totalSupply * underlyingPrice)}) at ${supplyRate.toFixed(2)}% APR`)
     _print(`Borrowed : ${formatMoney(totalBorrow)} ($${formatMoney(totalBorrow * underlyingPrice)}) at ${borrowRate.toFixed(2)}% APR`)
-    _print(`Reserves : ${formatMoney(uReserves)} ($${formatMoney(uReserves * underlyingPrice)})`);
-    _print(`Farming APR Supply ${yearlySupplyAPR.toFixed(2)}% Borrow ${yearlyBorrowAPR.toFixed(2)}%`);
-    _print(`Net APR Supply ${supplyNetAPR.toFixed(2)}% Borrow ${borrowNetAPR.toFixed(2)}%`);
+    // _print(`Reserves : ${formatMoney(uReserves)} ($${formatMoney(uReserves * underlyingPrice)})`);
+    // _print(`Farming APR Supply ${yearlySupplyAPR.toFixed(2)}% Borrow ${yearlyBorrowAPR.toFixed(2)}%`);
+    // _print(`Net APR Supply ${supplyNetAPR.toFixed(2)}% Borrow ${borrowNetAPR.toFixed(2)}%`);
 
     if(supplyBalanceOf > 0){
       _print(`You are supplying ${formatMoney(supplyBalanceOf)} ${uSymbol} ($${formatMoney(supplyBalanceOf * underlyingPrice)}), ${supplyPercentage.toFixed(2)}% of the pool.`)

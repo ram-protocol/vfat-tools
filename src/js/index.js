@@ -194,7 +194,7 @@ window.NETWORKS = {
   },
   THUNDERCORE: {
     "chainId": "0x6c",
-    "chainName": "ThunderCore Mainnet",
+    "chainName": "ThunderCore",
     "nativeCurrency": {
       "name": "Thunder Token",
       "symbol": "TT",
